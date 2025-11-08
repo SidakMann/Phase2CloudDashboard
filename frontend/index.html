@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Nutritional Insights — Selection-aware (lowercase diets)</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.0/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    canvas { display:block; }
+    #heatmap { overflow:auto; }
+    .chart-card { min-height:16rem; }
+    .btn-disabled { opacity: 0.6; pointer-events: none; }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <header class="bg-blue-600 p-4 text-white">
+    <h1 class="text-3xl font-semibold">Nutritional Insights</h1>
+  </header>
+
+  <main class="container mx-auto p-6 max-w-7xl">
+    <!-- Charts / Filters / Buttons identical to before -->
+    <section class="mb-8">
+      <h2 class="text-2xl font-semibold mb-4">Explore Nutritional Insights</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
+        <div class="bg-white p-4 shadow-lg rounded-lg chart-card flex flex-col">
+          <h3 class="font-semibold">Bar Chart</h3>
+          <p class="text-sm text-gray-600">Average macronutrient content by diet type.</p>
+          <div class="relative mt-3 h-64">
+            <canvas id="barChart" class="absolute inset-0 w-full h-full"></canvas>
+          </div>
+        </div>
+
+        <div class="bg-white p-4 shadow-lg rounded-lg chart-card flex flex-col">
+          <h3 class="font-semibold">Scatter Plot</h3>
+          <p class="text-sm text-gray-600">Nutrient relationships (e.g., protein vs carbs).</p>
+          <div class="relative mt-3 h-64">
+            <canvas id="scatterPlot" class="absolute inset-0 w-full h-full"></canvas>
+          </div>
+        </div>
+
+        <div class="bg-white p-4 shadow-lg rounded-lg chart-card flex flex-col">
+          <h3 class="font-semibold">Heatmap</h3>
+          <p class="text-sm text-gray-600">Nutrient correlations.</p>
+          <div id="heatmap" class="w-full mt-3 h-64 overflow-auto"></div>
+        </div>
+
+        <div class="bg-white p-4 shadow-lg rounded-lg chart-card flex flex-col">
+          <h3 class="font-semibold">Pie Chart</h3>
+          <p class="text-sm text-gray-600">Recipe distribution by diet type.</p>
+          <div class="relative mt-3 h-64">
+            <canvas id="pieChart" class="absolute inset-0 w-full h-full"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mb-8">
+      <h2 class="text-2xl font-semibold mb-4">Filters and Data Interaction</h2>
+      <div class="flex flex-wrap gap-4 items-center">
+        <span>Select diets (filter dropdown):</span>
+       <select id="dietSelect" class="p-2 border rounded w-full sm:w-auto">
+        <option value="all">all</option>
+      </select>
+      <label class="flex items-center gap-2 ml-4">
+        <span class="text-sm text-gray-600">per page:</span>
+        <select id="perPage" class="p-2 border rounded">
+          <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </label>
+      </div>
+      <p class="text-xs text-gray-500 mt-2">Dropdown will be replaced with latest diet options returned by the server.</p>
+       
+    </section>
+
+    <section class="mb-8">
+      <h2 class="text-2xl font-semibold mb-4">API Data Interaction</h2>
+      <div class="flex flex-wrap gap-4">
+        <button id="btnInsights" class="bg-blue-600 text-white py-2 px-4 rounded">Get Nutritional Insights</button>
+        <button id="btnRecipes" class="bg-green-600 text-white py-2 px-4 rounded">Get Recipes</button>
+        <button id="btnClusters" class="bg-purple-600 text-white py-2 px-4 rounded">Get Clusters</button>
+      </div>
+    </section>
+
+    <div id="clustersAreaHolder" class="mt-6"></div>
+    <div id="recipesAreaHolder"></div>
+  </main>
+
+  <footer class="bg-blue-600 p-4 text-white text-center mt-10">
+    <p>&copy; 2025 Nutritional Insights. All Rights Reserved.</p>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+  // Host detection
+  function detectFunctionHost() {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return `${window.location.protocol}//${host}:7071`;
+    }
+    return `${window.location.protocol}//${window.location.host}`;
+  }
+  const FUNCTION_HOST = detectFunctionHost();
+  const ENDPOINTS = {
+    insights: FUNCTION_HOST + "/api/GetInsights",
+    recipes:  FUNCTION_HOST + "/api/GetRecipes",
+    clusters: FUNCTION_HOST + "/api/GetClusters"
+  };
+
+  // State
+  let charts = {};
+  let currentPagination = { page:1, per_page:10, total_pages:1, total_recipes:0 };
+  let busy = false;
+
+  // Helpers
+  function lower(s){ return s ? String(s).toLowerCase() : s; }
+  function getSelectedDiet(){ return lower(document.getElementById('dietSelect').value || 'all'); }
+  function getPerPage(){ return parseInt(document.getElementById('perPage').value,10) || 10; }
+
+  function saveDietListToLocalStorage(list){
+    try { localStorage.setItem('diet_types_lower', JSON.stringify(list)); } catch(e){ /* ignore */ }
+  }
+  function loadDietListFromLocalStorage(){
+    try { return JSON.parse(localStorage.getItem('diet_types_lower') || '[]'); } catch(e){ return []; }
+  }
+
+  function setButtonsDisabled(disabled){
+    const ids = ['btnInsights','btnRecipes','btnClusters'];
+    ids.forEach(id=>{
+      const b = document.getElementById(id);
+      if(!b) return;
+      if(disabled) b.classList.add('btn-disabled'); else b.classList.remove('btn-disabled');
+    });
+    busy = disabled;
+  }
+
+  /**
+   * Populate dropdown with dietNames.
+   * If replace === true (default), replace existing options with dietNames (plus 'all').
+   * If replace === false, merge dietNames into existing options.
+   * If dietNames is empty or falsy and replace === true, fall back to persisted list.
+   */
+  function populateDietDropdown(dietNames, replace = true){
+    const select = document.getElementById('dietSelect');
+    if(!select) return;
+    const prev = select.value || 'all';
+
+    let finalList = [];
+    if(Array.isArray(dietNames) && dietNames.length){
+      // use server-provided list (replace)
+      finalList = Array.from(new Set(dietNames.map(d => lower(d)).filter(Boolean))).sort();
+      // persist it
+      saveDietListToLocalStorage(finalList);
+    } else if(!replace){
+      // no-op (nothing to add)
+      return;
+    } else {
+      // replace requested but server returned nothing — fall back to persisted
+      finalList = loadDietListFromLocalStorage();
+    }
+
+    // build dropdown: 'all' first then the finalList
+    select.innerHTML = '';
+    const optAll = document.createElement('option'); optAll.value='all'; optAll.textContent='all'; select.appendChild(optAll);
+    finalList.forEach(d => {
+      if(d === 'all') return;
+      const o = document.createElement('option'); o.value = d; o.textContent = d; select.appendChild(o);
+    });
+
+    // restore previous selection if still present, otherwise keep current selection
+    if([...select.options].some(o=>o.value === prev)) {
+      select.value = prev;
+    } else {
+      // if prev isn't present, preserve 'all' or the first value
+      select.value = 'all';
+    }
+  }
+
+  // Charts & heatmap rendering (unchanged)
+  function renderCharts(json){
+    const averages = json.averages || [];
+    const labels = averages.map(a => lower(a.Diet_type || ''));
+    const protein = averages.map(a => Number(a['Protein(g)']||0));
+    const carbs = averages.map(a => Number(a['Carbs(g)']||0));
+
+    const barCtx = document.getElementById('barChart').getContext('2d');
+    if(charts.bar) charts.bar.destroy();
+    charts.bar = new Chart(barCtx, {
+      type:'bar',
+      data:{ labels, datasets:[ { label:'Protein (g)', data: protein }, { label:'Carbs (g)', data: carbs } ] },
+      options:{ responsive:true, maintainAspectRatio:false }
+    });
+
+    const scatterCtx = document.getElementById('scatterPlot').getContext('2d');
+    const points = averages.map(a => ({ x: Number(a['Carbs(g)']||0), y: Number(a['Protein(g)']||0), r: 6 }));
+    if(charts.scatter) charts.scatter.destroy();
+    charts.scatter = new Chart(scatterCtx, {
+      type:'bubble', data:{ datasets:[{ label:'Protein vs Carbs', data: points }]},
+      options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ title:{display:true, text:'Carbs (g)'}}, y:{ title:{display:true, text:'Protein (g)'}} } }
+    });
+
+    const pieCtx = document.getElementById('pieChart').getContext('2d');
+    if(charts.pie) charts.pie.destroy();
+    charts.pie = new Chart(pieCtx, {
+      type:'pie', data:{ labels, datasets:[{ data: protein }]}, options:{ responsive:true, maintainAspectRatio:false }
+    });
+
+    renderHeatmap(json.correlation);
+    window.requestAnimationFrame(()=>{ Object.values(charts).forEach(c=>c && c.resize && c.resize()); });
+  }
+
+  function renderHeatmap(correlation){
+    const heatDiv = document.getElementById('heatmap');
+    heatDiv.innerHTML = '';
+    if(!correlation || !correlation.matrix){
+      heatDiv.innerHTML = '<p class="text-sm text-gray-600 p-3">Heatmap not available.</p>'; return;
+    }
+    const labels = correlation.labels;
+    const matrix = correlation.matrix;
+    const table = document.createElement('table'); table.style.width='100%'; table.style.borderCollapse='collapse'; table.className='text-sm';
+    const head = document.createElement('tr'); head.appendChild(document.createElement('th'));
+    labels.forEach(h=>{ const th=document.createElement('th'); th.textContent = lower(h); th.style.padding='6px'; th.style.textAlign='center'; head.appendChild(th); });
+    table.appendChild(head);
+    for(let i=0;i<matrix.length;i++){
+      const tr=document.createElement('tr');
+      const rowLabel=document.createElement('th'); rowLabel.textContent = lower(labels[i]); rowLabel.style.padding='6px'; tr.appendChild(rowLabel);
+      for(let j=0;j<matrix[i].length;j++){
+        const td=document.createElement('td'); const val=matrix[i][j];
+        td.textContent = (val === null || val === undefined) ? '—' : (typeof val === 'number' ? val.toFixed(3) : String(val));
+        td.style.padding='6px'; td.style.textAlign='center';
+        const v = (typeof val === 'number') ? val : 0;
+        const red = Math.round(Math.max(0,v)*255);
+        const blue = Math.round(Math.max(0,-v)*255);
+        const green = 255 - Math.round(Math.abs(v)*150);
+        td.style.background = `rgb(${red},${green},${blue})`;
+        tr.appendChild(td);
+      }
+      table.appendChild(tr);
+    }
+    heatDiv.appendChild(table);
+  }
+
+  // Recipes rendering (unchanged except pagination calls now call requestRecipes)
+  function showRecipesAndPagination(recipes, pagination){
+    const holder = document.getElementById('recipesAreaHolder');
+    holder.innerHTML = '';
+    const sec = document.createElement('div'); sec.className='mb-6';
+    sec.innerHTML = '<h3 class="text-lg font-semibold mb-2">Recipes</h3>';
+    const grid = document.createElement('div'); grid.id='recipesContainer'; grid.className='grid grid-cols-1 md:grid-cols-2 gap-4';
+    grid.innerHTML = recipes.map(r=>`<div class="bg-white p-3 shadow rounded">
+      <div class="font-semibold">${r.Recipe_name || r['Recipe_name'] || 'Unnamed'}</div>
+      <div class="text-sm text-gray-600">${(r.Diet_type||'').toString()} • ${(r.Cuisine_type||'').toString()}</div>
+      <div class="text-xs mt-2">Protein: ${r['Protein(g)']||'N/A'} g • Carbs: ${r['Carbs(g)']||'N/A'} g</div>
+    </div>`).join('');
+    sec.appendChild(grid);
+
+    const pagWrap = document.createElement('div'); pagWrap.className='flex items-center gap-2 mt-3';
+    const prev = document.createElement('button'); prev.className='px-3 py-1 bg-gray-300 rounded'; prev.textContent='Previous';
+    prev.disabled = pagination.page <= 1;
+    prev.onclick = ()=> requestRecipes(Math.max(1, pagination.page - 1));
+    pagWrap.appendChild(prev);
+
+    const startPage = Math.max(1, pagination.page - 2);
+    const endPage = Math.min(pagination.total_pages, pagination.page + 2);
+    for(let p = startPage; p <= endPage; p++){
+      const b = document.createElement('button'); b.textContent = p;
+      b.className = `px-3 py-1 ${p===pagination.page ? 'bg-blue-600 text-white rounded' : 'bg-gray-300 rounded'}`;
+      b.onclick = (()=>{ const pageNum = p; return () => requestRecipes(pageNum); })();
+      pagWrap.appendChild(b);
+    }
+
+    const next = document.createElement('button'); next.className='px-3 py-1 bg-gray-300 rounded'; next.textContent='Next';
+    next.disabled = pagination.page >= pagination.total_pages;
+    next.onclick = ()=> requestRecipes(Math.min(pagination.total_pages, pagination.page + 1));
+    pagWrap.appendChild(next);
+
+    const meta = document.createElement('div'); meta.className='text-sm text-gray-600 ml-4';
+    meta.textContent = `Showing page ${pagination.page} of ${pagination.total_pages} — ${pagination.total_recipes} recipes`;
+    pagWrap.appendChild(meta);
+
+    sec.appendChild(pagWrap);
+    holder.appendChild(sec);
+
+    currentPagination = {
+      page: pagination.page,
+      per_page: pagination.per_page,
+      total_pages: pagination.total_pages,
+      total_recipes: pagination.total_recipes
+    };
+  }
+
+  // Clusters rendering (unchanged)
+  function renderClusters(clusters){
+    const holder = document.getElementById('clustersAreaHolder');
+    holder.innerHTML = '';
+    const sec = document.createElement('div'); sec.className='mb-6';
+    sec.innerHTML = '<h3 class="text-lg font-semibold mb-2">Clusters (per-diet centroids)</h3>';
+    if(!clusters || !clusters.length){
+      sec.innerHTML += '<p class="text-sm text-gray-600">No clusters available for the selected diet.</p>';
+      holder.appendChild(sec);
+      return;
+    }
+    const grid = document.createElement('div'); grid.className='grid grid-cols-1 md:grid-cols-2 gap-4';
+    clusters.forEach(c=>{
+      const card = document.createElement('div');
+      card.className = 'bg-white p-3 shadow rounded';
+      const diet = c.diet_type || c.Diet_type || 'unknown';
+      let body = `<div class="font-semibold">${diet}</div><div class="text-xs mt-2">`;
+      Object.keys(c).forEach(k=>{
+        if(k === 'diet_type' || k === 'Diet_type') return;
+        body += `<div>${k}: ${(Number(c[k]) || 0).toFixed(3)}</div>`;
+      });
+      body += '</div>';
+      card.innerHTML = body;
+      grid.appendChild(card);
+    });
+    sec.appendChild(grid);
+
+    const tableWrap = document.createElement('div'); tableWrap.className='mt-3 overflow-auto bg-white p-3 shadow rounded';
+    let cols = Object.keys(clusters[0]);
+    cols = cols.filter(c=>c!=='diet_type'); cols.unshift('diet_type');
+    let tbl = `<table class="text-sm w-full"><thead><tr>${cols.map(c=>`<th class="px-2 py-1 text-left">${c}</th>`).join('')}</tr></thead><tbody>`;
+    clusters.forEach(r=>{
+      tbl += '<tr>' + cols.map(c=>`<td class="px-2 py-1">${(r[c] === undefined || r[c] === null) ? '-' : (typeof r[c] === 'number' ? r[c].toFixed(3) : r[c])}</td>`).join('') + '</tr>';
+    });
+    tbl += '</tbody></table>';
+    tableWrap.innerHTML = tbl;
+    sec.appendChild(tableWrap);
+
+    holder.appendChild(sec);
+  }
+
+  // Requests
+  async function requestInsightsPage(page = 1){
+    if(busy) return;
+    setButtonsDisabled(true);
+    const diet = getSelectedDiet();
+    const per_page = getPerPage();
+    const q = `?diet=${encodeURIComponent(diet)}&page=${page}&per_page=${per_page}`;
+    try {
+      const res = await fetch(ENDPOINTS.insights + q);
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const payload = await res.json();
+
+      const dietsFromServer = (payload.averages || []).map(a => lower(a.Diet_type)).filter(Boolean);
+      if(payload.recipes && payload.recipes.length) payload.recipes.forEach(r => { if(r.Diet_type) dietsFromServer.push(lower(r.Diet_type)); });
+
+      // REPLACE dropdown with server-provided diet list (if any). Fallback to persisted if empty.
+      populateDietDropdown(dietsFromServer, true);
+
+      renderCharts(payload);
+      showRecipesAndPagination(payload.recipes || [], payload.pagination || {page:1, per_page:per_page, total_pages:1, total_recipes:(payload.recipes||[]).length});
+    } catch(err){
+      console.error(err); alert('Failed to fetch insights: ' + err.message);
+    } finally {
+      setButtonsDisabled(false);
+    }
+  }
+
+  async function requestRecipes(page = 1){
+    if(busy) return;
+    setButtonsDisabled(true);
+    const diet = getSelectedDiet();
+    const per_page = getPerPage();
+    const q = `?diet=${encodeURIComponent(diet)}&page=${page}&per_page=${per_page}`;
+    try {
+      const res = await fetch(ENDPOINTS.recipes + q);
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const payload = await res.json();
+      const recipes = payload.recipes || payload || [];
+      const pagination = payload.pagination || { page:page, per_page:per_page, total_pages: Math.ceil((recipes.length||0)/per_page), total_recipes: recipes.length || 0 };
+      showRecipesAndPagination(recipes, pagination);
+
+      // REPLACE dropdown with diet types present in recipes returned by server (if any)
+      const dietsFromRecipes = recipes.map(r => lower(r.Diet_type)).filter(Boolean);
+      populateDietDropdown(dietsFromRecipes, true);
+    } catch(err){
+      console.error(err); alert('Failed to fetch recipes: ' + err.message);
+    } finally {
+      setButtonsDisabled(false);
+    }
+  }
+
+  async function requestClusters(){
+    if(busy) return;
+    setButtonsDisabled(true);
+    const diet = getSelectedDiet();
+    const q = `?diet=${encodeURIComponent(diet)}`;
+    try {
+      const res = await fetch(ENDPOINTS.clusters + q);
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const payload = await res.json();
+      const clusters = payload.clusters || payload || [];
+      renderClusters(clusters);
+    } catch(err){
+      console.error(err); alert('Failed to fetch clusters: ' + err.message);
+    } finally {
+      setButtonsDisabled(false);
+    }
+  }
+
+  // Wire up UI
+  document.getElementById('btnInsights').addEventListener('click', ()=> requestInsightsPage(1));
+  document.getElementById('btnRecipes').addEventListener('click', ()=> requestRecipes(1));
+  document.getElementById('btnClusters').addEventListener('click', requestClusters);
+
+ 
+
+  // On load: use persisted list if present, then request all data
+  const persisted = loadDietListFromLocalStorage();
+  if(persisted && persisted.length) populateDietDropdown(persisted, true);
+
+  // Initial automatic load (all data)
+  window.addEventListener('load', ()=> requestInsightsPage(1));
+  </script>
+</body>
+</html>
