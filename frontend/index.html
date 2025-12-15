@@ -3,99 +3,163 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Nutritional Insights — Selection-aware (lowercase diets)</title>
+  <title>Nutritional Insights — Cloud Dashboard</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.0/dist/tailwind.min.css" rel="stylesheet">
   <style>
     canvas { display:block; }
     #heatmap { overflow:auto; }
     .chart-card { min-height:16rem; }
     .btn-disabled { opacity: 0.6; pointer-events: none; }
+    .hidden { display: none; }
   </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
-  <header class="bg-blue-600 p-4 text-white">
-    <h1 class="text-3xl font-semibold">Nutritional Insights</h1>
-  </header>
 
-  <main class="container mx-auto p-6 max-w-7xl">
-    <!-- Charts / Filters / Buttons identical to before -->
-    <section class="mb-8">
-      <h2 class="text-2xl font-semibold mb-4">Explore Nutritional Insights</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
-        <div class="bg-white p-4 shadow-lg rounded-lg chart-card flex flex-col">
-          <h3 class="font-semibold">Bar Chart</h3>
-          <p class="text-sm text-gray-600">Average macronutrient content by diet type.</p>
-          <div class="relative mt-3 h-64">
-            <canvas id="barChart" class="absolute inset-0 w-full h-full"></canvas>
-          </div>
-        </div>
+  <!-- Login/Register Modal -->
+  <div id="authModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl p-8 max-w-md w-full mx-4">
+      <h2 id="authTitle" class="text-2xl font-bold mb-6 text-center">Login</h2>
 
-        <div class="bg-white p-4 shadow-lg rounded-lg chart-card flex flex-col">
-          <h3 class="font-semibold">Scatter Plot</h3>
-          <p class="text-sm text-gray-600">Nutrient relationships (e.g., protein vs carbs).</p>
-          <div class="relative mt-3 h-64">
-            <canvas id="scatterPlot" class="absolute inset-0 w-full h-full"></canvas>
-          </div>
-        </div>
-
-        <div class="bg-white p-4 shadow-lg rounded-lg chart-card flex flex-col">
-          <h3 class="font-semibold">Heatmap</h3>
-          <p class="text-sm text-gray-600">Nutrient correlations.</p>
-          <div id="heatmap" class="w-full mt-3 h-64 overflow-auto"></div>
-        </div>
-
-        <div class="bg-white p-4 shadow-lg rounded-lg chart-card flex flex-col">
-          <h3 class="font-semibold">Pie Chart</h3>
-          <p class="text-sm text-gray-600">Recipe distribution by diet type.</p>
-          <div class="relative mt-3 h-64">
-            <canvas id="pieChart" class="absolute inset-0 w-full h-full"></canvas>
-          </div>
-        </div>
+      <!-- Cloud connection notice -->
+      <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4 text-sm">
+        <strong>☁️ Connected to Azure Cloud</strong><br>
+        Create an account or login to access the dashboard
       </div>
-    </section>
 
-    <section class="mb-8">
-      <h2 class="text-2xl font-semibold mb-4">Filters and Data Interaction</h2>
-      <div class="flex flex-wrap gap-4 items-center">
-        <span>Select diets (filter dropdown):</span>
-       <select id="dietSelect" class="p-2 border rounded w-full sm:w-auto">
-        <option value="all">all</option>
-      </select>
-      <label class="flex items-center gap-2 ml-4">
-        <span class="text-sm text-gray-600">per page:</span>
-        <select id="perPage" class="p-2 border rounded">
-          <option value="5">5</option>
-            <option value="10" selected>10</option>
-            <option value="20">20</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
+      <div id="loginForm">
+        <div class="mb-4">
+          <label class="block text-gray-700 text-sm font-bold mb-2">Email</label>
+          <input type="email" id="loginEmail" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700" placeholder="demo@test.com" value="demo@test.com">
+        </div>
+        <div class="mb-6">
+          <label class="block text-gray-700 text-sm font-bold mb-2">Password</label>
+          <input type="password" id="loginPassword" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700" placeholder="password123" value="password123">
+        </div>
+        <button id="btnLogin" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded mb-3 hover:bg-blue-700">
+          Login
+        </button>
+        <button id="btnGithubLogin" class="w-full bg-gray-800 text-white font-bold py-2 px-4 rounded mb-3 hover:bg-gray-900">
+          Login with GitHub
+        </button>
+        <p class="text-center text-sm text-gray-600">
+          Don't have an account? <a href="#" id="showRegister" class="text-blue-600 hover:underline">Register</a>
+        </p>
+      </div>
+
+      <div id="registerForm" class="hidden">
+        <div class="mb-4">
+          <label class="block text-gray-700 text-sm font-bold mb-2">Full Name</label>
+          <input type="text" id="regFullName" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700" placeholder="John Doe" value="Demo User">
+        </div>
+        <div class="mb-4">
+          <label class="block text-gray-700 text-sm font-bold mb-2">Email</label>
+          <input type="email" id="regEmail" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700" placeholder="user@example.com" value="demo@test.com">
+        </div>
+        <div class="mb-6">
+          <label class="block text-gray-700 text-sm font-bold mb-2">Password</label>
+          <input type="password" id="regPassword" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700" placeholder="Password (min 8 chars)" value="password123">
+          <p class="text-xs text-gray-500 mt-1">Must contain uppercase, lowercase, and digit</p>
+        </div>
+        <button id="btnRegister" class="w-full bg-green-600 text-white font-bold py-2 px-4 rounded mb-3 hover:bg-green-700">
+          Register
+        </button>
+        <p class="text-center text-sm text-gray-600">
+          Already have an account? <a href="#" id="showLogin" class="text-blue-600 hover:underline">Login</a>
+        </p>
+      </div>
+
+      <div id="authError" class="hidden mt-4 p-3 bg-red-100 text-red-700 rounded text-sm"></div>
+      <div id="authSuccess" class="hidden mt-4 p-3 bg-green-100 text-green-700 rounded text-sm"></div>
+    </div>
+  </div>
+
+  <!-- Main Application (hidden until authenticated) -->
+  <div id="appContainer" class="hidden">
+    <header class="bg-blue-600 p-4 text-white flex justify-between items-center">
+      <h1 class="text-3xl font-semibold">Nutritional Insights — Phase 3</h1>
+      <div class="flex items-center gap-4">
+        <span id="userEmail" class="text-sm font-semibold"></span>
+        <button id="btnLogout" class="bg-red-500 px-4 py-2 rounded text-sm hover:bg-red-600">Logout</button>
+      </div>
+    </header>
+
+    <main class="container mx-auto p-6 max-w-7xl">
+      <section class="mb-8">
+        <h2 class="text-2xl font-semibold mb-4">Explore Nutritional Insights</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
+          <div class="bg-white p-4 shadow-lg rounded-lg chart-card flex flex-col">
+            <h3 class="font-semibold">Bar Chart</h3>
+            <p class="text-sm text-gray-600">Average macronutrient content by diet type.</p>
+            <div class="relative mt-3 h-64">
+              <canvas id="barChart" class="absolute inset-0 w-full h-full"></canvas>
+            </div>
+          </div>
+
+          <div class="bg-white p-4 shadow-lg rounded-lg chart-card flex flex-col">
+            <h3 class="font-semibold">Scatter Plot</h3>
+            <p class="text-sm text-gray-600">Nutrient relationships (e.g., protein vs carbs).</p>
+            <div class="relative mt-3 h-64">
+              <canvas id="scatterPlot" class="absolute inset-0 w-full h-full"></canvas>
+            </div>
+          </div>
+
+          <div class="bg-white p-4 shadow-lg rounded-lg chart-card flex flex-col">
+            <h3 class="font-semibold">Heatmap</h3>
+            <p class="text-sm text-gray-600">Nutrient correlations.</p>
+            <div id="heatmap" class="w-full mt-3 h-64 overflow-auto"></div>
+          </div>
+
+          <div class="bg-white p-4 shadow-lg rounded-lg chart-card flex flex-col">
+            <h3 class="font-semibold">Pie Chart</h3>
+            <p class="text-sm text-gray-600">Recipe distribution by diet type.</p>
+            <div class="relative mt-3 h-64">
+              <canvas id="pieChart" class="absolute inset-0 w-full h-full"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mb-8">
+        <h2 class="text-2xl font-semibold mb-4">Filters and Data Interaction</h2>
+        <div class="flex flex-wrap gap-4 items-center">
+          <span>Select diets (filter dropdown):</span>
+          <select id="dietSelect" class="p-2 border rounded w-full sm:w-auto">
+            <option value="all">all</option>
           </select>
-        </label>
-      </div>
-      <p class="text-xs text-gray-500 mt-2">Dropdown will be replaced with latest diet options returned by the server.</p>
-       
-    </section>
+          <label class="flex items-center gap-2 ml-4">
+            <span class="text-sm text-gray-600">per page:</span>
+            <select id="perPage" class="p-2 border rounded">
+              <option value="5">5</option>
+              <option value="10" selected>10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </label>
+        </div>
+      </section>
 
-    <section class="mb-8">
-      <h2 class="text-2xl font-semibold mb-4">API Data Interaction</h2>
-      <div class="flex flex-wrap gap-4">
-        <button id="btnInsights" class="bg-blue-600 text-white py-2 px-4 rounded">Get Nutritional Insights</button>
-        <button id="btnRecipes" class="bg-green-600 text-white py-2 px-4 rounded">Get Recipes</button>
-        <button id="btnClusters" class="bg-purple-600 text-white py-2 px-4 rounded">Get Clusters</button>
-      </div>
-    </section>
+      <section class="mb-8">
+        <h2 class="text-2xl font-semibold mb-4">API Data Interaction</h2>
+        <div class="flex flex-wrap gap-4">
+          <button id="btnInsights" class="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700">Get Nutritional Insights</button>
+          <button id="btnRecipes" class="bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700">Get Recipes</button>
+          <button id="btnClusters" class="bg-purple-600 text-white py-2 px-4 rounded hover:bg-purple-700">Get Clusters</button>
+        </div>
+      </section>
 
-    <div id="clustersAreaHolder" class="mt-6"></div>
-    <div id="recipesAreaHolder"></div>
-  </main>
+      <div id="clustersAreaHolder" class="mt-6"></div>
+      <div id="recipesAreaHolder"></div>
+    </main>
 
-  <footer class="bg-blue-600 p-4 text-white text-center mt-10">
-    <p>&copy; 2025 Nutritional Insights. All Rights Reserved.</p>
-  </footer>
+    <footer class="bg-blue-600 p-4 text-white text-center mt-10">
+      <p>&copy; 2025 Nutritional Insights — Phase 3 Demo. All Rights Reserved.</p>
+    </footer>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
-  // Host detection
+  // ========== Mock Authentication ==========
   function detectFunctionHost() {
     const host = window.location.hostname;
     if (host === 'localhost' || host === '127.0.0.1') {
@@ -107,15 +171,185 @@
   const ENDPOINTS = {
     insights: FUNCTION_HOST + "/api/GetInsights",
     recipes:  FUNCTION_HOST + "/api/GetRecipes",
-    clusters: FUNCTION_HOST + "/api/GetClusters"
+    clusters: FUNCTION_HOST + "/api/GetClusters",
+    register: FUNCTION_HOST + "/api/auth/register",
+    login:    FUNCTION_HOST + "/api/auth/login",
+    githubLogin: FUNCTION_HOST + "/api/auth/github"
   };
 
-  // State
+  // Real token management (connects to Azure backend)
+  function getToken() {
+    return localStorage.getItem('jwt_token');
+  }
+  function setToken(token) {
+    localStorage.setItem('jwt_token', token);
+  }
+  function clearToken() {
+    localStorage.removeItem('jwt_token');
+    localStorage.removeItem('user_info');
+  }
+  function setUserInfo(user) {
+    localStorage.setItem('user_info', JSON.stringify(user));
+  }
+  function getUserInfo() {
+    try {
+      return JSON.parse(localStorage.getItem('user_info') || '{}');
+    } catch(e) {
+      return {};
+    }
+  }
+
+  function isAuthenticated() {
+    return !!getToken();
+  }
+
+  function showAuthModal() {
+    document.getElementById('authModal').classList.remove('hidden');
+    document.getElementById('appContainer').classList.add('hidden');
+  }
+
+  function hideAuthModal() {
+    document.getElementById('authModal').classList.add('hidden');
+    document.getElementById('appContainer').classList.remove('hidden');
+
+    const user = getUserInfo();
+    if (user.email) {
+      document.getElementById('userEmail').textContent = user.email;
+    }
+  }
+
+  // Toggle between login and register
+  document.getElementById('showRegister').addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('loginForm').classList.add('hidden');
+    document.getElementById('registerForm').classList.remove('hidden');
+    document.getElementById('authTitle').textContent = 'Register';
+    hideError();
+  });
+
+  document.getElementById('showLogin').addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('registerForm').classList.add('hidden');
+    document.getElementById('loginForm').classList.remove('hidden');
+    document.getElementById('authTitle').textContent = 'Login';
+    hideError();
+  });
+
+  function showError(message) {
+    const errorDiv = document.getElementById('authError');
+    errorDiv.textContent = message;
+    errorDiv.classList.remove('hidden');
+    document.getElementById('authSuccess').classList.add('hidden');
+  }
+
+  function showSuccess(message) {
+    const successDiv = document.getElementById('authSuccess');
+    successDiv.textContent = message;
+    successDiv.classList.remove('hidden');
+    document.getElementById('authError').classList.add('hidden');
+  }
+
+  function hideError() {
+    document.getElementById('authError').classList.add('hidden');
+    document.getElementById('authSuccess').classList.add('hidden');
+  }
+
+  // Real Register (connects to Azure backend)
+  document.getElementById('btnRegister').addEventListener('click', async () => {
+    const fullName = document.getElementById('regFullName').value.trim();
+    const email = document.getElementById('regEmail').value.trim();
+    const password = document.getElementById('regPassword').value;
+
+    if (!email || !password) {
+      showError('Email and password are required');
+      return;
+    }
+
+    try {
+      const response = await fetch(ENDPOINTS.register, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ full_name: fullName || email, email, password })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        showError(data.message || 'Registration failed');
+        return;
+      }
+
+      showSuccess('✅ Registration successful! Logging you in...');
+
+      setToken(data.token);
+      setUserInfo(data.user);
+
+      setTimeout(() => {
+        hideAuthModal();
+        requestInsightsPage(1);
+      }, 500);
+
+    } catch (error) {
+      showError('Network error: ' + error.message);
+    }
+  });
+
+  // Real Login (connects to Azure backend)
+  document.getElementById('btnLogin').addEventListener('click', async () => {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+
+    if (!email || !password) {
+      showError('Email and password are required');
+      return;
+    }
+
+    try {
+      const response = await fetch(ENDPOINTS.login, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        showError(data.message || 'Login failed');
+        return;
+      }
+
+      showSuccess('✅ Login successful! Loading dashboard...');
+
+      setToken(data.token);
+      setUserInfo(data.user);
+
+      setTimeout(() => {
+        hideAuthModal();
+        requestInsightsPage(1);
+      }, 500);
+
+    } catch (error) {
+      showError('Network error: ' + error.message);
+    }
+  });
+
+  // Real GitHub OAuth
+  document.getElementById('btnGithubLogin').addEventListener('click', () => {
+    window.location.href = ENDPOINTS.githubLogin;
+  });
+
+  // Logout
+  document.getElementById('btnLogout').addEventListener('click', () => {
+    clearToken();
+    showAuthModal();
+    location.reload();
+  });
+
+  // ========== Application Logic (Same as Phase 2) ==========
   let charts = {};
   let currentPagination = { page:1, per_page:10, total_pages:1, total_recipes:0 };
   let busy = false;
 
-  // Helpers
   function lower(s){ return s ? String(s).toLowerCase() : s; }
   function getSelectedDiet(){ return lower(document.getElementById('dietSelect').value || 'all'); }
   function getPerPage(){ return parseInt(document.getElementById('perPage').value,10) || 10; }
@@ -137,12 +371,6 @@
     busy = disabled;
   }
 
-  /**
-   * Populate dropdown with dietNames.
-   * If replace === true (default), replace existing options with dietNames (plus 'all').
-   * If replace === false, merge dietNames into existing options.
-   * If dietNames is empty or falsy and replace === true, fall back to persisted list.
-   */
   function populateDietDropdown(dietNames, replace = true){
     const select = document.getElementById('dietSelect');
     if(!select) return;
@@ -150,19 +378,14 @@
 
     let finalList = [];
     if(Array.isArray(dietNames) && dietNames.length){
-      // use server-provided list (replace)
       finalList = Array.from(new Set(dietNames.map(d => lower(d)).filter(Boolean))).sort();
-      // persist it
       saveDietListToLocalStorage(finalList);
     } else if(!replace){
-      // no-op (nothing to add)
       return;
     } else {
-      // replace requested but server returned nothing — fall back to persisted
       finalList = loadDietListFromLocalStorage();
     }
 
-    // build dropdown: 'all' first then the finalList
     select.innerHTML = '';
     const optAll = document.createElement('option'); optAll.value='all'; optAll.textContent='all'; select.appendChild(optAll);
     finalList.forEach(d => {
@@ -170,16 +393,13 @@
       const o = document.createElement('option'); o.value = d; o.textContent = d; select.appendChild(o);
     });
 
-    // restore previous selection if still present, otherwise keep current selection
     if([...select.options].some(o=>o.value === prev)) {
       select.value = prev;
     } else {
-      // if prev isn't present, preserve 'all' or the first value
       select.value = 'all';
     }
   }
 
-  // Charts & heatmap rendering (unchanged)
   function renderCharts(json){
     const averages = json.averages || [];
     const labels = averages.map(a => lower(a.Diet_type || ''));
@@ -190,22 +410,24 @@
     if(charts.bar) charts.bar.destroy();
     charts.bar = new Chart(barCtx, {
       type:'bar',
-      data:{ labels, datasets:[ { label:'Protein (g)', data: protein }, { label:'Carbs (g)', data: carbs } ] },
+      data:{ labels, datasets:[ { label:'Protein (g)', data: protein, backgroundColor: 'rgba(54, 162, 235, 0.6)' }, { label:'Carbs (g)', data: carbs, backgroundColor: 'rgba(255, 99, 132, 0.6)' } ] },
       options:{ responsive:true, maintainAspectRatio:false }
     });
 
     const scatterCtx = document.getElementById('scatterPlot').getContext('2d');
-    const points = averages.map(a => ({ x: Number(a['Carbs(g)']||0), y: Number(a['Protein(g)']||0), r: 6 }));
+    const points = averages.map(a => ({ x: Number(a['Carbs(g)']||0), y: Number(a['Protein(g)']||0), r: 8 }));
     if(charts.scatter) charts.scatter.destroy();
     charts.scatter = new Chart(scatterCtx, {
-      type:'bubble', data:{ datasets:[{ label:'Protein vs Carbs', data: points }]},
+      type:'bubble', data:{ datasets:[{ label:'Protein vs Carbs', data: points, backgroundColor: 'rgba(75, 192, 192, 0.6)' }]},
       options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{ title:{display:true, text:'Carbs (g)'}}, y:{ title:{display:true, text:'Protein (g)'}} } }
     });
 
     const pieCtx = document.getElementById('pieChart').getContext('2d');
     if(charts.pie) charts.pie.destroy();
     charts.pie = new Chart(pieCtx, {
-      type:'pie', data:{ labels, datasets:[{ data: protein }]}, options:{ responsive:true, maintainAspectRatio:false }
+      type:'pie',
+      data:{ labels, datasets:[{ data: protein, backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'] }]},
+      options:{ responsive:true, maintainAspectRatio:false }
     });
 
     renderHeatmap(json.correlation);
@@ -222,11 +444,11 @@
     const matrix = correlation.matrix;
     const table = document.createElement('table'); table.style.width='100%'; table.style.borderCollapse='collapse'; table.className='text-sm';
     const head = document.createElement('tr'); head.appendChild(document.createElement('th'));
-    labels.forEach(h=>{ const th=document.createElement('th'); th.textContent = lower(h); th.style.padding='6px'; th.style.textAlign='center'; head.appendChild(th); });
+    labels.forEach(h=>{ const th=document.createElement('th'); th.textContent = lower(h); th.style.padding='6px'; th.style.textAlign='center'; th.style.fontWeight='bold'; head.appendChild(th); });
     table.appendChild(head);
     for(let i=0;i<matrix.length;i++){
       const tr=document.createElement('tr');
-      const rowLabel=document.createElement('th'); rowLabel.textContent = lower(labels[i]); rowLabel.style.padding='6px'; tr.appendChild(rowLabel);
+      const rowLabel=document.createElement('th'); rowLabel.textContent = lower(labels[i]); rowLabel.style.padding='6px'; rowLabel.style.fontWeight='bold'; tr.appendChild(rowLabel);
       for(let j=0;j<matrix[i].length;j++){
         const td=document.createElement('td'); const val=matrix[i][j];
         td.textContent = (val === null || val === undefined) ? '—' : (typeof val === 'number' ? val.toFixed(3) : String(val));
@@ -236,6 +458,7 @@
         const blue = Math.round(Math.max(0,-v)*255);
         const green = 255 - Math.round(Math.abs(v)*150);
         td.style.background = `rgb(${red},${green},${blue})`;
+        td.style.color = Math.abs(v) > 0.5 ? 'white' : 'black';
         tr.appendChild(td);
       }
       table.appendChild(tr);
@@ -243,7 +466,6 @@
     heatDiv.appendChild(table);
   }
 
-  // Recipes rendering (unchanged except pagination calls now call requestRecipes)
   function showRecipesAndPagination(recipes, pagination){
     const holder = document.getElementById('recipesAreaHolder');
     holder.innerHTML = '';
@@ -251,14 +473,14 @@
     sec.innerHTML = '<h3 class="text-lg font-semibold mb-2">Recipes</h3>';
     const grid = document.createElement('div'); grid.id='recipesContainer'; grid.className='grid grid-cols-1 md:grid-cols-2 gap-4';
     grid.innerHTML = recipes.map(r=>`<div class="bg-white p-3 shadow rounded">
-      <div class="font-semibold">${r.Recipe_name || r['Recipe_name'] || 'Unnamed'}</div>
+      <div class="font-semibold text-blue-600">${r.Recipe_name || r['Recipe_name'] || 'Unnamed'}</div>
       <div class="text-sm text-gray-600">${(r.Diet_type||'').toString()} • ${(r.Cuisine_type||'').toString()}</div>
-      <div class="text-xs mt-2">Protein: ${r['Protein(g)']||'N/A'} g • Carbs: ${r['Carbs(g)']||'N/A'} g</div>
+      <div class="text-xs mt-2">Protein: ${r['Protein(g)']||'N/A'} g • Carbs: ${r['Carbs(g)']||'N/A'} g • Fat: ${r['Fat(g)']||'N/A'} g</div>
     </div>`).join('');
     sec.appendChild(grid);
 
     const pagWrap = document.createElement('div'); pagWrap.className='flex items-center gap-2 mt-3';
-    const prev = document.createElement('button'); prev.className='px-3 py-1 bg-gray-300 rounded'; prev.textContent='Previous';
+    const prev = document.createElement('button'); prev.className='px-3 py-1 bg-gray-300 rounded hover:bg-gray-400'; prev.textContent='Previous';
     prev.disabled = pagination.page <= 1;
     prev.onclick = ()=> requestRecipes(Math.max(1, pagination.page - 1));
     pagWrap.appendChild(prev);
@@ -267,12 +489,12 @@
     const endPage = Math.min(pagination.total_pages, pagination.page + 2);
     for(let p = startPage; p <= endPage; p++){
       const b = document.createElement('button'); b.textContent = p;
-      b.className = `px-3 py-1 ${p===pagination.page ? 'bg-blue-600 text-white rounded' : 'bg-gray-300 rounded'}`;
+      b.className = `px-3 py-1 ${p===pagination.page ? 'bg-blue-600 text-white rounded' : 'bg-gray-300 rounded hover:bg-gray-400'}`;
       b.onclick = (()=>{ const pageNum = p; return () => requestRecipes(pageNum); })();
       pagWrap.appendChild(b);
     }
 
-    const next = document.createElement('button'); next.className='px-3 py-1 bg-gray-300 rounded'; next.textContent='Next';
+    const next = document.createElement('button'); next.className='px-3 py-1 bg-gray-300 rounded hover:bg-gray-400'; next.textContent='Next';
     next.disabled = pagination.page >= pagination.total_pages;
     next.onclick = ()=> requestRecipes(Math.min(pagination.total_pages, pagination.page + 1));
     pagWrap.appendChild(next);
@@ -283,16 +505,9 @@
 
     sec.appendChild(pagWrap);
     holder.appendChild(sec);
-
-    currentPagination = {
-      page: pagination.page,
-      per_page: pagination.per_page,
-      total_pages: pagination.total_pages,
-      total_recipes: pagination.total_recipes
-    };
+    currentPagination = pagination;
   }
 
-  // Clusters rendering (unchanged)
   function renderClusters(clusters){
     const holder = document.getElementById('clustersAreaHolder');
     holder.innerHTML = '';
@@ -303,15 +518,15 @@
       holder.appendChild(sec);
       return;
     }
-    const grid = document.createElement('div'); grid.className='grid grid-cols-1 md:grid-cols-2 gap-4';
+    const grid = document.createElement('div'); grid.className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4';
     clusters.forEach(c=>{
       const card = document.createElement('div');
       card.className = 'bg-white p-3 shadow rounded';
       const diet = c.diet_type || c.Diet_type || 'unknown';
-      let body = `<div class="font-semibold">${diet}</div><div class="text-xs mt-2">`;
+      let body = `<div class="font-semibold text-purple-600 mb-2">${diet}</div><div class="text-xs">`;
       Object.keys(c).forEach(k=>{
         if(k === 'diet_type' || k === 'Diet_type') return;
-        body += `<div>${k}: ${(Number(c[k]) || 0).toFixed(3)}</div>`;
+        body += `<div><strong>${k}:</strong> ${(Number(c[k]) || 0).toFixed(2)}</div>`;
       });
       body += '</div>';
       card.innerHTML = body;
@@ -322,18 +537,17 @@
     const tableWrap = document.createElement('div'); tableWrap.className='mt-3 overflow-auto bg-white p-3 shadow rounded';
     let cols = Object.keys(clusters[0]);
     cols = cols.filter(c=>c!=='diet_type'); cols.unshift('diet_type');
-    let tbl = `<table class="text-sm w-full"><thead><tr>${cols.map(c=>`<th class="px-2 py-1 text-left">${c}</th>`).join('')}</tr></thead><tbody>`;
+    let tbl = `<table class="text-sm w-full"><thead><tr>${cols.map(c=>`<th class="px-2 py-1 text-left bg-gray-100">${c}</th>`).join('')}</tr></thead><tbody>`;
     clusters.forEach(r=>{
-      tbl += '<tr>' + cols.map(c=>`<td class="px-2 py-1">${(r[c] === undefined || r[c] === null) ? '-' : (typeof r[c] === 'number' ? r[c].toFixed(3) : r[c])}</td>`).join('') + '</tr>';
+      tbl += '<tr class="border-t">' + cols.map(c=>`<td class="px-2 py-1">${(r[c] === undefined || r[c] === null) ? '-' : (typeof r[c] === 'number' ? r[c].toFixed(3) : r[c])}</td>`).join('') + '</tr>';
     });
     tbl += '</tbody></table>';
     tableWrap.innerHTML = tbl;
     sec.appendChild(tableWrap);
-
     holder.appendChild(sec);
   }
 
-  // Requests
+  // API requests with authentication headers
   async function requestInsightsPage(page = 1){
     if(busy) return;
     setButtonsDisabled(true);
@@ -341,16 +555,17 @@
     const per_page = getPerPage();
     const q = `?diet=${encodeURIComponent(diet)}&page=${page}&per_page=${per_page}`;
     try {
-      const res = await fetch(ENDPOINTS.insights + q);
+      const token = getToken();
+      const res = await fetch(ENDPOINTS.insights + q, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
       if(!res.ok) throw new Error('HTTP ' + res.status);
       const payload = await res.json();
 
       const dietsFromServer = (payload.averages || []).map(a => lower(a.Diet_type)).filter(Boolean);
       if(payload.recipes && payload.recipes.length) payload.recipes.forEach(r => { if(r.Diet_type) dietsFromServer.push(lower(r.Diet_type)); });
 
-      // REPLACE dropdown with server-provided diet list (if any). Fallback to persisted if empty.
       populateDietDropdown(dietsFromServer, true);
-
       renderCharts(payload);
       showRecipesAndPagination(payload.recipes || [], payload.pagination || {page:1, per_page:per_page, total_pages:1, total_recipes:(payload.recipes||[]).length});
     } catch(err){
@@ -367,14 +582,16 @@
     const per_page = getPerPage();
     const q = `?diet=${encodeURIComponent(diet)}&page=${page}&per_page=${per_page}`;
     try {
-      const res = await fetch(ENDPOINTS.recipes + q);
+      const token = getToken();
+      const res = await fetch(ENDPOINTS.recipes + q, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
       if(!res.ok) throw new Error('HTTP ' + res.status);
       const payload = await res.json();
       const recipes = payload.recipes || payload || [];
       const pagination = payload.pagination || { page:page, per_page:per_page, total_pages: Math.ceil((recipes.length||0)/per_page), total_recipes: recipes.length || 0 };
       showRecipesAndPagination(recipes, pagination);
 
-      // REPLACE dropdown with diet types present in recipes returned by server (if any)
       const dietsFromRecipes = recipes.map(r => lower(r.Diet_type)).filter(Boolean);
       populateDietDropdown(dietsFromRecipes, true);
     } catch(err){
@@ -390,7 +607,10 @@
     const diet = getSelectedDiet();
     const q = `?diet=${encodeURIComponent(diet)}`;
     try {
-      const res = await fetch(ENDPOINTS.clusters + q);
+      const token = getToken();
+      const res = await fetch(ENDPOINTS.clusters + q, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
       if(!res.ok) throw new Error('HTTP ' + res.status);
       const payload = await res.json();
       const clusters = payload.clusters || payload || [];
@@ -407,14 +627,38 @@
   document.getElementById('btnRecipes').addEventListener('click', ()=> requestRecipes(1));
   document.getElementById('btnClusters').addEventListener('click', requestClusters);
 
- 
-
-  // On load: use persisted list if present, then request all data
+  // Initialize
   const persisted = loadDietListFromLocalStorage();
   if(persisted && persisted.length) populateDietDropdown(persisted, true);
 
-  // Initial automatic load (all data)
-  window.addEventListener('load', ()=> requestInsightsPage(1));
+  // Check for OAuth callback parameters in URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const tokenFromUrl = urlParams.get('token');
+  const userIdFromUrl = urlParams.get('user_id');
+  const emailFromUrl = urlParams.get('email');
+  const fullNameFromUrl = urlParams.get('full_name');
+
+  if (tokenFromUrl && userIdFromUrl && emailFromUrl) {
+    // GitHub OAuth callback - save token and user info
+    setToken(tokenFromUrl);
+    setUserInfo({
+      user_id: userIdFromUrl,
+      email: emailFromUrl,
+      full_name: fullNameFromUrl || ''
+    });
+    // Clean up URL parameters
+    window.history.replaceState({}, document.title, window.location.pathname);
+    // Show authenticated app
+    hideAuthModal();
+    requestInsightsPage(1);
+  } else if (isAuthenticated()) {
+    // Already authenticated
+    hideAuthModal();
+    // Don't auto-load, let user click buttons
+  } else {
+    // Not authenticated - show login
+    showAuthModal();
+  }
   </script>
 </body>
 </html>
