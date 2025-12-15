@@ -3,3 +3,8 @@ pandas
 numpy
 scikit-learn
 flask
+pyodbc
+bcrypt
+pyjwt
+python-dotenv
+requests

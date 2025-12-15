@@ -1,0 +1,29 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+
+    "BLOB_STORAGE_CONNECTION_STRING": "DefaultEndpointsProtocol=https;AccountName=YOUR_STORAGE_ACCOUNT;AccountKey=YOUR_STORAGE_KEY;EndpointSuffix=core.windows.net",
+    "BLOB_CONTAINER_NAME": "datasets",
+    "BLOB_CACHE_CONTAINER_NAME": "cache",
+
+    "SQL_SERVER": "YOUR_SERVER.database.windows.net",
+    "SQL_DATABASE": "NutritionalDB",
+    "SQL_USERNAME": "YOUR_USERNAME",
+    "SQL_PASSWORD": "YOUR_PASSWORD",
+    "SQL_DRIVER": "{ODBC Driver 18 for SQL Server}",
+
+    "JWT_SECRET_KEY": "your-secret-key-change-this-in-production-min-32-chars",
+    "JWT_ALGORITHM": "HS256",
+    "JWT_EXPIRATION_HOURS": "24",
+
+    "GITHUB_CLIENT_ID": "Ov23liBqLTBI3HYRSwhN",
+    "GITHUB_CLIENT_SECRET": "baad039a592545f0eb4b5bf9bffbb7187c6d158c",
+    "GITHUB_REDIRECT_URI": "http://localhost:7071/api/auth/github/callback"
+  },
+  "Host": {
+    "CORS": "*",
+    "CORSCredentials": false
+  }
+}
